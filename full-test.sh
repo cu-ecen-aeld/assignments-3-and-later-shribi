@@ -15,7 +15,6 @@ logfile=test.sh.log
 # See https://stackoverflow.com/a/3403786
 # Place stdout and stderr in a log file
 exec > >(tee -i -a "$logfile") 2> >(tee -i -a "$logfile" >&2)
-
 echo "Running test with user $(whoami)"
 
 set +e
