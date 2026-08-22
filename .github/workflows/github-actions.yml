@@ -9,4 +9,4 @@ jobs:
           - name: Checkout submodules
             run : git submodule update --init --recursive
           - name: Run unit test
-            run: ./full-test.sh
+            run: ./unit-test.sh
