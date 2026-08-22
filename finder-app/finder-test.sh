@@ -54,8 +54,9 @@ fi
 
 for i in $( seq 1 $NUMFILES)
 do
-	make clean
-	make
+	# Removing make as part of assignment3-part1
+	# make clean
+	# make
 	./writer "$WRITEDIR/${username}$i.txt" "$WRITESTR"
 done
 
