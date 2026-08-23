@@ -86,15 +86,9 @@ ${CROSS_COMPILE}readelf -a ./busybox | grep "program interpreter"
 ${CROSS_COMPILE}readelf -a ./busybox | grep "Shared library"
 
 # TODO: Add library dependencies to rootfs
-cp /tools/aarch64/arm-gnu-toolchain-15.3.rel1-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib64/libm.so.6 ${OUTDIR}/rootfs/lib/
-cp /tools/aarch64/arm-gnu-toolchain-15.3.rel1-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib64/libresolv.so.2 ${OUTDIR}/rootfs/lib/
-cp /tools/aarch64/arm-gnu-toolchain-15.3.rel1-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib64/libc.so.6 ${OUTDIR}/rootfs/lib/
-cp /tools/aarch64/arm-gnu-toolchain-15.3.rel1-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib/ld-linux-aarch64.so.1 ${OUTDIR}/rootfs/lib/
-
-cp /tools/aarch64/arm-gnu-toolchain-15.3.rel1-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib64/libm.so.6 ${OUTDIR}/rootfs/lib64/
-cp /tools/aarch64/arm-gnu-toolchain-15.3.rel1-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib64/libresolv.so.2 ${OUTDIR}/rootfs/lib64/
-cp /tools/aarch64/arm-gnu-toolchain-15.3.rel1-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib64/libc.so.6 ${OUTDIR}/rootfs/lib64/
-cp /tools/aarch64/arm-gnu-toolchain-15.3.rel1-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib/ld-linux-aarch64.so.1 ${OUTDIR}/rootfs/lib64/
+SYSROOT=$(${CROSS_COMPILE}gcc -print-sysroot)
+cp -rL ${SYSROOT}/lib64/ ${OUTDIR}/rootfs/
+cp -rL ${SYSROOT}/lib/ ${OUTDIR}/rootfs/
 
 # TODO: Make device nodes
 cd ${OUTDIR}/rootfs
