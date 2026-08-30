@@ -3,7 +3,8 @@
 case "$1" in
     start)
         echo "Starting aesdsocket"
-        start-stop-daemon -S -n aesdsocket -a aesdsocket
+        # Start the aesdsocket daemon in the background
+        start-stop-daemon -S -b -n aesdsocket aesdsocket -- -d
         ;;
     stop)
         echo "Stopping aesdsocket"
