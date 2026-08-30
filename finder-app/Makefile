@@ -1,4 +1,5 @@
 CC=$(CROSS_COMPILE)gcc
+
 edit: writer.o
 
 all: writer
