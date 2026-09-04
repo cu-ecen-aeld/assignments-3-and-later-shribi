@@ -52,10 +52,10 @@ void *time_logger(void *arg) {
         struct tm tm_info;
         localtime_r(&now, &tm_info);
         char timestamp[64];
-        strftime(timestamp, sizeof(timestamp), "%a %b %d %Y %H:%M:%S %z\n", &tm_info);
+        strftime(timestamp, sizeof(timestamp), "%a %b %d %Y %H:%M:%S %z", &tm_info);
     
         // logging time
-        printf("Logging time: %s", timestamp);
+        printf("Logging time: %s\n", timestamp);
 
         char line[128];
         snprintf(line, sizeof(line), "timestamp:%s\n", timestamp);
