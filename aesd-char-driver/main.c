@@ -124,6 +124,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count, loff
     retval = count;
 
     if (dev->can_write) {
+        PDEBUG("adding new entry to circular buffer");
         struct aesd_buffer_entry new_entry;
         const char *to_free = NULL;
 
@@ -135,11 +136,13 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count, loff
         new_entry.size = dev->pending_buffer_size;
         aesd_circular_buffer_add_entry(&dev->circular_buffer, &new_entry);
 
-        // reset the pending buffer since it has been added to the circular buffer
-        retval = dev->pending_buffer_size;
         dev->pending_buffer_size = 0;
         dev->buffer = NULL;
-        kfree(to_free);
+        if(to_free)
+        {
+            kfree(to_free);
+        }
+        PDEBUG("retv %zd", retval);
     }
 
     // unlock the device mutex
