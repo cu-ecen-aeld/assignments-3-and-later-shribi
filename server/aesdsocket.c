@@ -15,6 +15,10 @@
 
 bool SIGNAL_RECEIVED = false;
 
+#ifndef USE_AESD_CHAR_DEVICE
+#define USE_AESD_CHAR_DEVICE 1
+#endif
+
 // file write mutex
 pthread_mutex_t file_write_mutex;
 
@@ -33,6 +37,9 @@ void signal_handler(int signum) {
     SIGNAL_RECEIVED = true;
 }
 
+#if USE_AESD_CHAR_DEVICE
+    // No time logger needed for AESD char device
+#else
 void *time_logger(void *arg) {
     (void)arg; // unused parameter
     while (!SIGNAL_RECEIVED) {
@@ -42,7 +49,9 @@ void *time_logger(void *arg) {
         if (SIGNAL_RECEIVED) break;
 
         pthread_mutex_lock(&file_write_mutex);
-        FILE *fp = fopen("/var/tmp/aesdsocketdata", "a");
+
+        FILE *fp;
+        fp = fopen("/var/tmp/aesdsocketdata", "a");
         if (fp == NULL) {
             perror("fopen");
             pthread_mutex_unlock(&file_write_mutex);
@@ -65,6 +74,7 @@ void *time_logger(void *arg) {
     }
     return NULL;
 }
+#endif
 
 void *client_handler(void *arg) {
     struct thread_node *client_node = (struct thread_node *)arg;
@@ -80,7 +90,12 @@ void *client_handler(void *arg) {
     buffer[0] = '\0';
 
     pthread_mutex_lock(&file_write_mutex);
-    FILE *fp = fopen("/var/tmp/aesdsocketdata", "a");
+    FILE *fp;
+#if USE_AESD_CHAR_DEVICE
+    fp = fopen("/dev/aesdchar", "a");
+#else
+    fp = fopen("/var/tmp/aesdsocketdata", "a");
+#endif
     if (fp == NULL) {
         perror("fopen");
         free(buffer);
@@ -116,7 +131,12 @@ void *client_handler(void *arg) {
             fflush(fp);
 
             // Stream the full file back in fixed-size chunks; it may be larger than available heap/RAM
-            FILE *read_fp = fopen("/var/tmp/aesdsocketdata", "r");
+            FILE *read_fp;
+#if USE_AESD_CHAR_DEVICE
+            read_fp = fopen("/dev/aesdchar", "r");
+#else
+            read_fp = fopen("/var/tmp/aesdsocketdata", "r");
+#endif
             if (read_fp == NULL) {
                 perror("fopen");
             } else {
@@ -176,8 +196,12 @@ int main(int argc, char *argv[]) {
     // Create syslog logger 
     openlog("aesdsocket", LOG_PID | LOG_CONS, LOG_USER);
 
+#if USE_AESD_CHAR_DEVICE
+    // No removal needed for AESD char device
+#else
     // Ensure a clean slate in case a prior run left this behind (e.g. was killed with SIGKILL)
     remove("/var/tmp/aesdsocketdata");
+#endif
 
     // Open a stream socket
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -234,11 +258,16 @@ int main(int argc, char *argv[]) {
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
 
+#if USE_AESD_CHAR_DEVICE
+    // No time logger needed for AESD char device
+#else
     pthread_t time_logger_thread;
     if (pthread_create(&time_logger_thread, NULL, time_logger, NULL) != 0) {
         perror("pthread_create");
         exit(EXIT_FAILURE);
     }
+#endif
+    
 
     // Accept and serve connections one at a time, looping forever to handle each new client
     while (!SIGNAL_RECEIVED) {        
@@ -280,8 +309,13 @@ int main(int argc, char *argv[]) {
     closelog();
     close(sockfd);
 
-    pthread_join(time_logger_thread, NULL);
-    remove("/var/tmp/aesdsocketdata");
+#if USE_AESD_CHAR_DEVICE
+    // No cleanup needed for AESD char device
+#else
+        pthread_join(time_logger_thread, NULL);
+        remove("/var/tmp/aesdsocketdata");
+#endif
+
     printf("------------Server Exiting--------------\n");
     return 0;
 }
