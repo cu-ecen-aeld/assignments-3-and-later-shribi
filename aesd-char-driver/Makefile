@@ -23,6 +23,10 @@ PWD       := $(shell pwd)
 modules:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
 
+# Only for Yocto - standards say that
+modules_install:
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules_install
+
 endif
 
 clean:
