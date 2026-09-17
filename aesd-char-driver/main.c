@@ -150,12 +150,49 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count, loff
     return retval;
 }
 
+
+static loff_t aesd_llseek(struct file *filp, loff_t offset, int whence)
+{
+    struct aesd_dev *dev = filp->private_data;
+    loff_t new_pos = 0;
+    size_t total_buffer_size = 0;
+    int i = 0;
+
+    mutex_lock(&dev->lock);
+    switch(whence) {
+        case SEEK_SET:
+            new_pos = offset;
+            break;
+        case SEEK_CUR:
+            new_pos = dev->circular_buffer.in_offs + offset;
+            break;
+        case SEEK_END:
+            for (i = 0; i < AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED; i++) {
+                total_buffer_size += dev->circular_buffer.entry[i].size;
+            }
+            new_pos = total_buffer_size + offset;
+            break;
+        default:
+            mutex_unlock(&dev->lock);
+            return -EINVAL;
+    }
+    if (new_pos < 0) {
+        mutex_unlock(&dev->lock);
+        return -EINVAL;
+    }
+    filp->f_pos = new_pos;
+    mutex_unlock(&dev->lock);
+    return new_pos;
+}
+
+
 struct file_operations aesd_fops = {
     .owner =    THIS_MODULE,
     .read =     aesd_read,
     .write =    aesd_write,
     .open =     aesd_open,
     .release =  aesd_release,
+    .llseek =    aesd_llseek,
 };
 
 static int aesd_setup_cdev(struct aesd_dev *dev)
