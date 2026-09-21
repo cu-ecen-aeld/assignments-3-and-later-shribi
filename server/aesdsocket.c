@@ -12,6 +12,7 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include <sys/queue.h>
+#include "../aesd-char-driver/aesd_ioctl.h"
 
 bool SIGNAL_RECEIVED = false;
 
@@ -92,9 +93,9 @@ void *client_handler(void *arg) {
     pthread_mutex_lock(&file_write_mutex);
     FILE *fp;
 #if USE_AESD_CHAR_DEVICE
-    fp = fopen("/dev/aesdchar", "a");
+    fp = fopen("/dev/aesdchar", "a+");
 #else
-    fp = fopen("/var/tmp/aesdsocketdata", "a");
+    fp = fopen("/var/tmp/aesdsocketdata", "a+");
 #endif
     if (fp == NULL) {
         perror("fopen");
@@ -121,39 +122,43 @@ void *client_handler(void *arg) {
 
         // Write out every complete (newline-terminated) packet currently buffered
         char *newline_pos;
+        bool is_ioctl = false;
         while ((newline_pos = strchr(buffer, '\n')) != NULL) {
             size_t packet_len = newline_pos - buffer + 1;
-
-            if (fwrite(buffer, 1, packet_len, fp) != packet_len) {
+            int ret = 0;
+            // string == AESDCHAR_IOCSEEKTO:
+            if (strncmp(buffer, "AESDCHAR_IOCSEEKTO:", 19) == 0) {
+                is_ioctl = true;
+                struct aesd_seekto seekto;
+                if (sscanf(buffer, "AESDCHAR_IOCSEEKTO:%d,%d", &seekto.write_cmd, &seekto.write_cmd_offset) == 2) {
+                    ret = ioctl(fileno(fp), AESDCHAR_IOCSEEKTO, &seekto);
+                    if (ret < 0) {
+                        perror("ioctl");
+                    }
+                }
+            }
+            else if (!is_ioctl && fwrite(buffer, 1, packet_len, fp) != packet_len) {
                 perror("fwrite");
                 break;
             }
             fflush(fp);
 
-            // Stream the full file back in fixed-size chunks; it may be larger than available heap/RAM
-            FILE *read_fp;
-#if USE_AESD_CHAR_DEVICE
-            read_fp = fopen("/dev/aesdchar", "r");
-#else
-            read_fp = fopen("/var/tmp/aesdsocketdata", "r");
-#endif
-            if (read_fp == NULL) {
-                perror("fopen");
-            } else {
-                char send_chunk[1024];
-                size_t n;
-                while ((n = fread(send_chunk, 1, sizeof(send_chunk), read_fp)) > 0) {
-                    size_t sent_total = 0;
-                    while (sent_total < n) {
-                        ssize_t sent = send(client_sockfd, send_chunk + sent_total, n - sent_total, 0);
-                        if (sent < 0) {
-                            perror("send");
-                            break;
-                        }
-                        sent_total += (size_t)sent;
+            if (!is_ioctl) {
+                fseek(fp, 0, SEEK_SET);
+            }
+
+            char send_chunk[1024];
+            size_t n;
+            while ((n = fread(send_chunk, 1, sizeof(send_chunk), fp)) > 0) {
+                size_t sent_total = 0;
+                while (sent_total < n) {
+                    ssize_t sent = send(client_sockfd, send_chunk + sent_total, n - sent_total, 0);
+                    if (sent < 0) {
+                        perror("send");
+                        break;
                     }
+                    sent_total += (size_t)sent;
                 }
-                fclose(read_fp);
             }
 
             // Shift the leftover partial packet (if any) to the front, including its null terminator
